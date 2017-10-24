@@ -46,10 +46,11 @@ bool get_fresh_dir_path(char* path_buffer)
             "opendir(\".\") failed with: \"%s\"\n",
             strerror(errno)
         );
+
+        return false;
     }
 
     struct stat sb;
-    char freshest_path[256];
     time_t freshest_path_time = 0;
 
     struct dirent* entity = readdir(cwd);
@@ -85,12 +86,25 @@ bool get_fresh_dir_path(char* path_buffer)
             time_t last_time = sb.st_mtime;
             if (last_time > freshest_path_time)
             {
-                strcpy
+                freshest_path_time = last_time;
+                strcpy(path_buffer, entity_name);
             }
         }
 
         entity = readdir(cwd);
     }
+
+    if (freshest_path_time == 0)
+    {
+        fprintf(
+            stderr,
+            "Did not find any directories of the form comitoz.rooms.<PID> in the current dir."
+        );
+
+        return false;
+    }
+
+    return true;
 }
 
 // Read directory for room files and parse each one into a `Room`
@@ -100,4 +114,13 @@ bool get_fresh_dir_path(char* path_buffer)
 
 
 // (main) Get room array, enter game loop
+int main(void)
+{
+    char path_buffer[256];
+    if (!get_fresh_dir_path(path_buffer))
+    {
+        return 1;
+    }
 
+    return 0;
+}
