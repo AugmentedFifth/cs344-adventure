@@ -28,7 +28,9 @@ typedef struct Room
 
 
 // Forward declarations
+bool get_fresh_dir_path(char* path_buffer);
 
+int parse_room_dir(const char* dir_path, Room* room_buffer, int max_rooms);
 
 
 // Get path of most recently modified room file directory. `false` signifies
@@ -98,7 +100,7 @@ bool get_fresh_dir_path(char* path_buffer)
     {
         fprintf(
             stderr,
-            "Did not find any directories of the form comitoz.rooms.<PID> in the current dir."
+            "Did not find any directories of the form `comitoz.rooms.*` in the current dir."
         );
 
         return false;
@@ -107,7 +109,51 @@ bool get_fresh_dir_path(char* path_buffer)
     return true;
 }
 
-// Read directory for room files and parse each one into a `Room`
+// Read directory for room files and parse each one into a `Room`.
+// This returns the numebr of `Room`s that were parsed, or -1 on failure.
+int parse_room_dir(const char* dir_path, Room* room_buffer, int max_rooms)
+{
+    DIR* dir = opendir(dir_path);
+    if (dir == NULL)
+    {
+        fprintf(
+            stderr,
+            "opendir(\"%s\") failed with: \"%s\"\n",
+            dir_path,
+            strerror(errno)
+        );
+
+        return -1;
+    }
+
+    char rel_path_buffer[256];
+
+    struct dirent* entity = readdir(cwd);
+    while (entity != NULL)
+    {
+        char* entity_name = entity->d_name;
+        strcpy(rel_path_buffer, dir_path);
+        strcat(rel_path_buffer, "/");
+        strcat(rel_path_buffer, entity_name);
+
+        FILE* file_handle = fopen(rel_path_buffer, "w");
+        if (file_handle == NULL)
+        {
+            fprintf(
+                stderr,
+                "fopen(\"%s\", \"w\") failed with: \"%s\"\n",
+                rel_path_buffer,
+                strerror(errno)
+            );
+
+            return -1;
+        }
+
+        entity = readdir(cwd);
+    }
+
+   
+}
 
 
 // Use file handle to parse file contents into a `Room`

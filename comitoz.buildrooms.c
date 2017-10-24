@@ -265,17 +265,18 @@ bool write_room_files(const Room* rooms, int room_count)
     {
         Room room = rooms[i];
 
-        char path_buffer[41 + MAX_ROOM_NAME_LEN];
-        strcpy(path_buffer, dir_name);
-        strcat(path_buffer, "/");
-        strcat(path_buffer, room.name);
-        FILE* file_handle = fopen(path_buffer, "w");
+        char rel_path_buffer[41 + MAX_ROOM_NAME_LEN];
+        strcpy(rel_path_buffer, dir_name);
+        strcat(rel_path_buffer, "/");
+        strcat(rel_path_buffer, room.name);
+
+        FILE* file_handle = fopen(rel_path_buffer, "w");
         if (file_handle == NULL)
         {
             fprintf(
                 stderr,
-                "fopen(%s, \"w\") failed with: \"%s\"\n",
-                dir_name,
+                "fopen(\"%s\", \"w\") failed with: \"%s\"\n",
+                rel_path_buffer,
                 strerror(errno)
             );
 
