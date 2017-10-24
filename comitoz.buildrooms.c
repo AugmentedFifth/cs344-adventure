@@ -10,14 +10,13 @@
 // `typedef`s
 typedef enum {false, true} bool;
 
-// Define `struct` for a "room"
-struct Room
+typedef struct Room
 {
     int id;
     char* name;
     int* connections;
     int connection_count;
-};
+} Room;
 
 
 // Room names
@@ -51,7 +50,7 @@ void connect_rooms(Room* room1, Room* room2);
 
 bool is_same_room(Room room1, Room room2);
 
-char* get_dir_name();
+void get_dir_name(char* buffer);
 
 
 // `malloc` an array of `Room`s
@@ -67,7 +66,7 @@ void make_connections(Room* rooms, int room_count)
 }
 
 // Checking to see if all rooms have 3 to 6 outbound connections
-bool is_graph_full(Room* rooms, int room_count)
+bool is_graph_full(const Room* rooms, int room_count)
 {
     for (int i = 0; i < room_count; ++i)
     {
@@ -167,22 +166,32 @@ bool is_same_room(Room room1, Room room2)
     return room1.id == room2.id;
 }
 
-// Generate dir name to put files in
-char* get_dir_name()
+// Generate dir name to put files in.
+// `buffer` should be large enough to hold 40 `char`s or more.
+void get_dir_name(char* buffer)
 {
     char pid_str_buffer[24];
     int format_success = sprintf(pid_str_buffer, "%d", getpid());
     assert(format_success > 0);
 
-    char* full_buffer = malloc(40 * sizeof(char));
-    strcpy(full_buffer, "comitoz.rooms.");
-    strcat(full_buffer, pid_str_buffer);
-
-    return full_buffer;
+    strcpy(buffer, "comitoz.rooms.");
+    strcat(buffer, pid_str_buffer);
 }
 
-// Write the room files
+// Write the room files, returning `false` on failure
+bool write_room_files(const Room* rooms, int room_count)
+{
+    char* dir_name = malloc(40 * sizeof(char));
+    get_dir_name(dir_name);
 
+    struct stat* stat_buffer = malloc(sizeof(struct stat));
+
+    if (stat(dir_name, stat_buffer) == -1)
+
+
+    free(stat_buffer); // i don't like leeks, they taste like nothing
+    free(dir_name);
+}
 
 // (main) 
 
