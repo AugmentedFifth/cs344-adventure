@@ -6,6 +6,7 @@
 #include <sys/stat.h>  // stat
 #include <unistd.h>    // getpid
 #include <errno.h>     // errno
+#include <time.h>      // Seed for rand
 
 
 // `typedef`s
@@ -321,6 +322,9 @@ const char* room_type_to_str(room_type rt)
 
 int main(void)
 {
+    // Seed our PRNG
+    srand(time(NULL));
+
     printf("=== Entry point ===\n");
     int room_count = 7;
     Room* room_buffer = malloc(room_count * sizeof(Room));
