@@ -296,5 +296,30 @@ const char* room_type_to_str(room_type rt)
     return "wat";
 }
 
-// (main) 
 
+int main(int argc, char* argv[])
+{
+    printf("=== Entry point ===\n");
+    int room_count = 7;
+    Room* room_buffer = malloc(room_count * sizeof(Room));
+
+    printf("=== initialize_rooms ===\n");
+    initialize_rooms(room_buffer, room_count);
+    
+    printf("=== make_connections ===\n");
+    make_connections(room_buffer, room_count);
+    
+    printf("=== write_room_files ===\n");
+    write_room_files(room_buffer, room_count);
+
+    printf("=== Cleanup ===\n");
+    // Cleanup
+    for (int i = 0; i < room_count; ++i)
+    {
+        _Room(&room_buffer[i]);
+    }
+    free(room_buffer);
+
+    printf("=== Success? ===\n");
+    return 0;
+}
