@@ -179,6 +179,7 @@ int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms)
         }
         
         bool parse_succeeded = true;
+        printf("rel_path_buffer: \"%s\"\n", rel_path_buffer);
         Room* parsed_room = parse_file(
             file_handle,
             parsed_room_count,
@@ -205,7 +206,7 @@ int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms)
 // the returned pointer
 Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
 {
-    printf("\n=== parse_file ===\n");
+    printf("=== parse_file ===\n");
 
     char* line = NULL;
     size_t getline_buffer_len = 0;
@@ -217,6 +218,7 @@ Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
     room->connection_count = 0;
 
     ssize_t chars_read = getline(&line, &getline_buffer_len, file_handle);
+    if (chars_read == -1) { printf("errno!: %s\n", strerror(errno)); }
     while (chars_read != -1)
     {
         printf("line: \"%s\"\n", line);
@@ -233,7 +235,9 @@ Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
         // files since you last checked.
         char second_token[6];
         char property_value[20];
-        if (sscanf(line, "%*s %s: %s", second_token, property_value) == 2)
+        int sscanf_result = sscanf(line, "%*s %s: %s", second_token, property_value);
+        printf("sscanf_result: %d", sscanf_result);
+        if (sscanf_result == 3)
         {
             printf("%s, %s\n", second_token, property_value);
             // We only need the first character of the second token of the
@@ -338,8 +342,9 @@ Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
         }
     }
 
-    printf("errno: %s\n", strerror(errno));
+    printf("errno: %s\n\n", strerror(errno));
 
+    free(line);
     *parse_succeeded = true;
 
     return room;
