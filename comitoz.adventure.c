@@ -179,7 +179,6 @@ int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms)
         }
         
         bool parse_succeeded = true;
-        printf("rel_path_buffer: \"%s\"\n", rel_path_buffer);
         Room* parsed_room = parse_file(
             file_handle,
             parsed_room_count,
@@ -187,7 +186,7 @@ int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms)
         );
         if (!parse_succeeded)
         {
-            fprintf(stderr, "Parse failure was in %s", rel_path_buffer);
+            fprintf(stderr, "Parse failure was in %s\n", rel_path_buffer);
 
             return -1;
         }
@@ -206,8 +205,6 @@ int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms)
 // the returned pointer
 Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
 {
-    printf("=== parse_file ===\n");
-
     char* line = NULL;
     size_t getline_buffer_len = 0;
 
@@ -217,29 +214,31 @@ Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
     room->name = malloc(20 * sizeof(char));
     room->connection_count = 0;
 
+    // Parsing state
+    bool got_name = false;
+
     ssize_t chars_read = getline(&line, &getline_buffer_len, file_handle);
-    if (chars_read == -1) { printf("errno!: %s\n", strerror(errno)); }
     while (chars_read != -1)
     {
-        printf("line: \"%s\"\n", line);
         if (chars_read == 0)
         {
-            continue; // Ignore empty lines
+            // Ignore empty lines
+            chars_read = getline(&line, &getline_buffer_len, file_handle);
+            continue;
         }
-
-        // Parsing state
-        bool got_name = false;
 
         // Classic `sscanf`. This relies on the format to not incur buffer
         // overflow, so uh, make sure no one tampered with your room
         // files since you last checked.
         char second_token[6];
         char property_value[20];
-        int sscanf_result = sscanf(line, "%*s %s: %s", second_token, property_value);
-        printf("sscanf_result: %d", sscanf_result);
-        if (sscanf_result == 3)
+        int sscanf_result = sscanf(
+            line,
+            "%*s %s %s\n",
+            second_token, property_value
+        );
+        if (sscanf_result == 2)
         {
-            printf("%s, %s\n", second_token, property_value);
             // We only need the first character of the second token of the
             // property name to distinguish them due to the format
             switch (second_token[0])
@@ -251,7 +250,7 @@ Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
                         _Room(room);
                         fprintf(
                             stderr,
-                            "Parsing failed: saw 'N' but already parsed ROOM NAME"
+                            "Parsing failed: saw 'N' but already parsed ROOM NAME\n"
                         );
                         *parse_succeeded = false;
 
@@ -271,14 +270,14 @@ Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
                         {
                             fprintf(
                                 stderr,
-                                "Parsing failed: saw 'T' but no ROOM NAME yet"
+                                "Parsing failed: saw 'T' but no ROOM NAME yet\n"
                             );
                         }
                         else
                         {
                             fprintf(
                                 stderr,
-                                "Parsing failed: saw 'T' but only %d CONNECTIONs so far",
+                                "Parsing failed: saw 'T' but only %d CONNECTIONs so far\n",
                                 room->connection_count
                             );
                         }
@@ -312,7 +311,7 @@ Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
                         {
                             fprintf(
                                 stderr,
-                                "Parsing failed: saw %c, but no ROOM NAME yet",
+                                "Parsing failed: saw %c, but no ROOM NAME yet\n",
                                 second_token[0]
                             );
                         }
@@ -320,7 +319,7 @@ Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
                         {
                             fprintf(
                                 stderr,
-                                "Parsing failed: saw %c, but there's already %d connections",
+                                "Parsing failed: saw %c, but there's already %d connections\n",
                                 second_token[0],
                                 room->connection_count
                             );
@@ -340,9 +339,9 @@ Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
                 }
             }
         }
-    }
 
-    printf("errno: %s\n\n", strerror(errno));
+        chars_read = getline(&line, &getline_buffer_len, file_handle);
+    }
 
     free(line);
     *parse_succeeded = true;

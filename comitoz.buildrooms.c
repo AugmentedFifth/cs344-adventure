@@ -294,7 +294,7 @@ bool write_room_files(const Room* rooms, int room_count)
                 rooms[room.connections[j]].name
             );
         }
-        fprintf(file_handle, "ROOM_TYPE: %s\n", room_type_to_str(room.type));
+        fprintf(file_handle, "ROOM TYPE: %s\n", room_type_to_str(room.type));
         
         fclose(file_handle);
     }    
