@@ -1,3 +1,9 @@
+# Executable
+comitoz.buildrooms
+
+# Crap
+comitoz.buildrooms.i
+
 # Prerequisites
 *.d
 

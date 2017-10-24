@@ -81,7 +81,8 @@ void initialize_rooms(Room* room_buffer, int room_count)
     char* shuffled_room_names[ROOM_NAME_COUNT];
     get_random_room_names(shuffled_room_names);
 
-    for (int i = 0; i < room_count; ++i)
+    int i;
+    for (i = 0; i < room_count; ++i)
     {
         Room r;
         r.id = i;
@@ -113,7 +114,8 @@ void get_random_room_names(char* room_name_buffer[])
     memcpy(room_name_buffer, ROOM_NAMES, ROOM_NAME_COUNT * sizeof(char*));
 
     // Fisher-Yates
-    for (int i = ROOM_NAME_COUNT - 1; i >= 1; --i)
+    int i;
+    for (i = ROOM_NAME_COUNT - 1; i >= 1; --i)
     {
         int j = rand() % (i + 1);
         char* temp = room_name_buffer[j];
@@ -127,14 +129,15 @@ void make_connections(Room* rooms, int room_count)
 {
     while (!is_graph_full(rooms, room_count))
     {
-        add_connection(rooms, room_count);
+        add_random_connection(rooms, room_count);
     }
 }
 
 // Checking to see if all rooms have 3 to 6 outbound connections
 bool is_graph_full(const Room* rooms, int room_count)
 {
-    for (int i = 0; i < room_count; ++i)
+    int i;
+    for (i = 0; i < room_count; ++i)
     {
         int connection_count = rooms[i].connection_count;
         assert(connection_count <= 6);
@@ -161,7 +164,8 @@ void add_random_connection(Room* rooms, int room_count)
     int choices_for_a[room_count];
     int possible_as = 0;
 
-    for (int i = 0; i < room_count; ++i) 
+    int i;
+    for (i = 0; i < room_count; ++i) 
     {
         if (can_add_connection_from(rooms[i]))
         {
@@ -177,7 +181,7 @@ void add_random_connection(Room* rooms, int room_count)
     int choices_for_b[room_count];
     int possible_bs = 0;
 
-    for (int i = 0; i < room_count; ++i)
+    for (i = 0; i < room_count; ++i)
     {
         if (
             can_add_connection_from(rooms[i]) &&
@@ -205,7 +209,8 @@ bool can_add_connection_from(Room room)
 // Is there already a connection from `room1` to `room2`?
 bool connection_already_exists(Room room1, Room room2)
 {
-    for (int i = 0; i < room1.connection_count; ++i)
+    int i;
+    for (i = 0; i < room1.connection_count; ++i)
     {
         if (room1.connections[i] == room2.id)
         {
@@ -250,11 +255,10 @@ bool write_room_files(const Room* rooms, int room_count)
     char* dir_name = malloc(40 * sizeof(char));
     get_dir_name(dir_name);
 
-    //struct stat* stat_buffer = malloc(sizeof(struct stat));
-
     mkdir(dir_name, 0777);
 
-    for (int i = 0; i < room_count; ++i)
+    int i;
+    for (i = 0; i < room_count; ++i)
     {
         FILE* file_handle = fopen(dir_name, "w");
         assert(file_handle != NULL);
@@ -262,7 +266,8 @@ bool write_room_files(const Room* rooms, int room_count)
         Room room = rooms[i];
         
         fprintf(file_handle, "ROOM NAME: %s\n", room.name);
-        for (int j = 0; j < room.connection_count; ++j)
+        int j;
+        for (j = 0; j < room.connection_count; ++j)
         {
             fprintf(
                 file_handle,
@@ -276,7 +281,6 @@ bool write_room_files(const Room* rooms, int room_count)
         fclose(file_handle);
     }    
 
-    //free(stat_buffer);
     free(dir_name);
 }
 
@@ -314,7 +318,8 @@ int main(int argc, char* argv[])
 
     printf("=== Cleanup ===\n");
     // Cleanup
-    for (int i = 0; i < room_count; ++i)
+    int i;
+    for (i = 0; i < room_count; ++i)
     {
         _Room(&room_buffer[i]);
     }
