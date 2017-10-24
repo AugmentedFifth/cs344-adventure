@@ -1,6 +1,6 @@
 #include <stdio.h>     // fopen, fclose, printf, scanf, sprintf
-#include <stdlib.h>    // malloc, free, rand, bsearch
-#include <string.h>    // strcpy, strcat
+#include <stdlib.h>    // malloc, free, rand
+#include <string.h>    // memcpy, strcpy, strcat
 #include <assert.h>    // Good ol' assertions
 #include <sys/types.h> // Types for system functions
 #include <sys/stat.h>  // stat
@@ -23,7 +23,8 @@ typedef struct Room
 
 
 // Room names
-const char* ROOM_NAMES[] =
+#define ROOM_NAME_COUNT 10
+const char* ROOM_NAMES[ROOM_NAME_COUNT] =
 {
     "Semigroupoid",
     "Category",
@@ -39,9 +40,15 @@ const char* ROOM_NAMES[] =
 
 
 // Forward declarations
+void _Room(Room* r);
+
+void initialize_rooms(Room* room_buffer, int room_count);
+
+void get_random_room_names(char* room_name_buffer[]);
+
 void make_connections(Room* rooms, int room_count);
 
-bool is_graph_full(Room* rooms, int room_count);
+bool is_graph_full(const Room* rooms, int room_count);
 
 void add_random_connection(Room* rooms, int room_count);
 
@@ -55,9 +62,65 @@ bool is_same_room(Room room1, Room room2);
 
 void get_dir_name(char* buffer);
 
+bool write_room_files(const Room* rooms, int room_count);
 
-// `malloc` an array of `Room`s
+const char* room_type_to_str(room_type rt);
 
+
+// Use this to free `Room`s
+void _Room(Room* r)
+{
+    free(r->connections);
+}
+
+// Initialize an array of `Room`s
+void initialize_rooms(Room* room_buffer, int room_count)
+{
+    assert(room_count <= ROOM_NAME_COUNT);
+    
+    char* shuffled_room_names[ROOM_NAME_COUNT];
+    get_random_room_names(shuffled_room_names);
+
+    for (int i = 0; i < room_count; ++i)
+    {
+        Room r;
+        r.id = i;
+        r.name = shuffled_room_names[i];
+        r.connections = malloc(6 * sizeof(int));
+        r.connection_count = 0;
+        if (i == 0)
+        {
+            r.type = START_ROOM;
+        }
+        else if (i == 1)
+        {
+            r.type = END_ROOM;
+        }
+        else
+        {
+            r.type = MID_ROOM;
+        }
+
+        room_buffer[i] = r;
+    }
+}
+
+// Gets a shuffled copy of `ROOM_NAMES` and puts it into `room_name_buffer`.
+// So `room_name_buffer` should be at least large enough to hold
+// `ROOM_NAME_COUNT` `char*`s
+void get_random_room_names(char* room_name_buffer[])
+{
+    memcpy(room_name_buffer, ROOM_NAMES, ROOM_NAME_COUNT * sizeof(char*));
+
+    // Fisher-Yates
+    for (int i = ROOM_NAME_COUNT - 1; i >= 1; --i)
+    {
+        int j = rand() % (i + 1);
+        char* temp = room_name_buffer[j];
+        room_name_buffer[j] = room_name_buffer[i];
+        room_name_buffer[i] = temp;
+    }
+}
 
 // Create all connections of the graph
 void make_connections(Room* rooms, int room_count)
@@ -213,7 +276,7 @@ bool write_room_files(const Room* rooms, int room_count)
         fclose(file_handle);
     }    
 
-    free(stat_buffer); // i don't like leeks, they taste like nothing
+    //free(stat_buffer);
     free(dir_name);
 }
 
