@@ -10,12 +10,15 @@
 // `typedef`s
 typedef enum {false, true} bool;
 
+typedef enum {START_ROOM, MID_ROOM, END_ROOM} room_type;
+
 typedef struct Room
 {
     int id;
     char* name;
     int* connections;
     int connection_count;
+    room_type type;
 } Room;
 
 
@@ -184,13 +187,50 @@ bool write_room_files(const Room* rooms, int room_count)
     char* dir_name = malloc(40 * sizeof(char));
     get_dir_name(dir_name);
 
-    struct stat* stat_buffer = malloc(sizeof(struct stat));
+    //struct stat* stat_buffer = malloc(sizeof(struct stat));
 
-    if (stat(dir_name, stat_buffer) == -1)
+    mkdir(dir_name, 0777);
 
+    for (int i = 0; i < room_count; ++i)
+    {
+        FILE* file_handle = fopen(dir_name, "w");
+        assert(file_handle != NULL);
+
+        Room room = rooms[i];
+        
+        fprintf(file_handle, "ROOM NAME: %s\n", room.name);
+        for (int j = 0; j < room.connection_count; ++j)
+        {
+            fprintf(
+                file_handle,
+                "CONNECTION %d: %s\n",
+                j + 1,
+                rooms[room.connections[j]].name
+            );
+        }
+        fprintf(file_handle, "ROOM_TYPE: %s\n", room_type_to_str(room.type));
+        
+        fclose(file_handle);
+    }    
 
     free(stat_buffer); // i don't like leeks, they taste like nothing
     free(dir_name);
+}
+
+// Convert `room_type` enum into its string representation
+const char* room_type_to_str(room_type rt)
+{
+    switch (rt)
+    {
+        case START_ROOM:
+            return "START_ROOM";
+        case MID_ROOM:
+            return "MID_ROOM";
+        case END_ROOM:
+            return "END_ROOM";
+    }
+
+    return "wat";
 }
 
 // (main) 
