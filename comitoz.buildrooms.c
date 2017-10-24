@@ -313,13 +313,13 @@ const char* room_type_to_str(room_type rt)
             return "MID_ROOM";
         case END_ROOM:
             return "END_ROOM";
+        default:
+            return "wat";
     }
-
-    return "wat";
 }
 
 
-int main(int argc, char* argv[])
+int main(void)
 {
     printf("=== Entry point ===\n");
     int room_count = 7;
