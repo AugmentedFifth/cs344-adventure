@@ -32,11 +32,11 @@ void _Room(Room* room);
 
 bool get_fresh_dir_path(char* path_buffer);
 
-int parse_room_dir(const char* dir_path, Room* room_buffer, int max_rooms);
+int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms);
 
-Room parse_file(FILE* file_handle, bool* parse_succeeded);
+Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded);
 
-void room_print_debug(Room room, char* str_buffer);
+void room_print_debug(Room* room, char* str_buffer);
 
 const char* room_type_to_str(room_type rt);
     
@@ -131,7 +131,7 @@ bool get_fresh_dir_path(char* path_buffer)
 
 // Read directory for room files and parse each one into a `Room`.
 // This returns the numebr of `Room`s that were parsed, or -1 on failure.
-int parse_room_dir(const char* dir_path, Room* room_buffer, int max_rooms)
+int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms)
 {
     DIR* dir = opendir(dir_path);
     if (dir == NULL)
@@ -149,20 +149,28 @@ int parse_room_dir(const char* dir_path, Room* room_buffer, int max_rooms)
     int parsed_room_count = 0;
     char rel_path_buffer[256];
 
-    struct dirent* entity = readdir(cwd);
+    struct dirent* entity = readdir(dir);
     while (entity != NULL && parsed_room_count < max_rooms)
     {
         char* entity_name = entity->d_name;
+        // We assume all files in the folder are map files, but we still have
+        // to filter out the . and .. directories
+        if (entity_name[0] == '.')
+        {
+            entity = readdir(dir);
+            continue;
+        }
+
         strcpy(rel_path_buffer, dir_path);
         strcat(rel_path_buffer, "/");
         strcat(rel_path_buffer, entity_name);
 
-        FILE* file_handle = fopen(rel_path_buffer, "w");
+        FILE* file_handle = fopen(rel_path_buffer, "r");
         if (file_handle == NULL)
         {
             fprintf(
                 stderr,
-                "fopen(\"%s\", \"w\") failed with: \"%s\"\n",
+                "fopen(\"%s\", \"r\") failed with: \"%s\"\n",
                 rel_path_buffer,
                 strerror(errno)
             );
@@ -171,9 +179,15 @@ int parse_room_dir(const char* dir_path, Room* room_buffer, int max_rooms)
         }
         
         bool parse_succeeded = true;
-        Room parsed_room = parse_file(file_handle, &parse_succeeded);
+        Room* parsed_room = parse_file(
+            file_handle,
+            parsed_room_count,
+            &parse_succeeded
+        );
         if (!parse_succeeded)
         {
+            fprintf(stderr, "Parse failure was in %s", rel_path_buffer);
+
             return -1;
         }
         room_buffer[parsed_room_count] = parsed_room;
@@ -181,31 +195,38 @@ int parse_room_dir(const char* dir_path, Room* room_buffer, int max_rooms)
 
         fclose(file_handle);
 
-        entity = readdir(cwd);
+        entity = readdir(dir);
     }
 
     return parsed_room_count;
 }
 
-// Use file handle to parse file contents into a `Room`
-Room parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
+// Use file handle to parse file contents into a `Room*`. Caller must `free`
+// the returned pointer
+Room* parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
 {
+    printf("\n=== parse_file ===\n");
+
     char* line = NULL;
     size_t getline_buffer_len = 0;
 
     // Initialize `Room` to be returned
-    Room room;
-    room.id = room_id;
-    room.name = malloc(20 * sizeof(char));
-    room.connection_count = 0;
+    Room* room = malloc(sizeof(Room));
+    room->id = room_id;
+    room->name = malloc(20 * sizeof(char));
+    room->connection_count = 0;
 
     ssize_t chars_read = getline(&line, &getline_buffer_len, file_handle);
     while (chars_read != -1)
     {
+        printf("line: \"%s\"\n", line);
         if (chars_read == 0)
         {
             continue; // Ignore empty lines
         }
+
+        // Parsing state
+        bool got_name = false;
 
         // Classic `sscanf`. This relies on the format to not incur buffer
         // overflow, so uh, make sure no one tampered with your room
@@ -214,59 +235,134 @@ Room parse_file(FILE* file_handle, int room_id, bool* parse_succeeded)
         char property_value[20];
         if (sscanf(line, "%*s %s: %s", second_token, property_value) == 2)
         {
+            printf("%s, %s\n", second_token, property_value);
             // We only need the first character of the second token of the
             // property name to distinguish them due to the format
             switch (second_token[0])
             {
                 case 'N': // ROOM NAME: ...
-                    strcpy(room.name, property_value);
+                {
+                    if (got_name)
+                    {
+                        _Room(room);
+                        fprintf(
+                            stderr,
+                            "Parsing failed: saw 'N' but already parsed ROOM NAME"
+                        );
+                        *parse_succeeded = false;
+
+                        return room;
+                    }
+
+                    strcpy(room->name, property_value);
+                    got_name = true;
                     break;
+                }
                 case 'T': // ROOM TYPE: ...
+                {
+                    if (!got_name || room->connection_count < 3)
+                    {
+                        _Room(room);
+                        if (!got_name)
+                        {
+                            fprintf(
+                                stderr,
+                                "Parsing failed: saw 'T' but no ROOM NAME yet"
+                            );
+                        }
+                        else
+                        {
+                            fprintf(
+                                stderr,
+                                "Parsing failed: saw 'T' but only %d CONNECTIONs so far",
+                                room->connection_count
+                            );
+                        }
+                        *parse_succeeded = false;
+
+                        return room;
+                    }
+
                     // Due to the format, again, we only need the first
                     // character of the room type token
                     switch (property_value[0])
                     {
                         case 'S': // START_ROOM
-                            room.type = START_ROOM;
+                            room->type = START_ROOM;
                             break;
                         case 'M': // MID_ROOM
-                            room.type = MID_ROOM;
+                            room->type = MID_ROOM;
                             break;
                         default:  // END_ROOM
-                            room.type = END_ROOM;
+                            room->type = END_ROOM;
                             break;
                     }
                     break;
+                }
                 default:  // CONNECTION #: ...
+                {
+                    if (!got_name || room->connection_count >= 6)
+                    {
+                        _Room(room);
+                        if (!got_name)
+                        {
+                            fprintf(
+                                stderr,
+                                "Parsing failed: saw %c, but no ROOM NAME yet",
+                                second_token[0]
+                            );
+                        }
+                        else
+                        {
+                            fprintf(
+                                stderr,
+                                "Parsing failed: saw %c, but there's already %d connections",
+                                second_token[0],
+                                room->connection_count
+                            );
+                        }
+                        *parse_succeeded = false;
+
+                        return room;
+                    }
+
                     char* connection_name = malloc(20 * sizeof(char));
                     strcpy(connection_name, property_value);
 
-                    room.connections[room.connection_count] = connection_name;
-                    room.connection_count++;
+                    room->connections[room->connection_count] =
+                        connection_name;
+                    room->connection_count++;
                     break;
+                }
             }
         }
     }
+
+    printf("errno: %s\n", strerror(errno));
+
+    *parse_succeeded = true;
+
+    return room;
 }
 
 // Print a `Room` struct, for debugging purposes only
-void room_print_debug(Room room, char* str_buffer)
+void room_print_debug(Room* room, char* str_buffer)
 {
     strcpy(str_buffer, "{id: ");
     char id_buffer[3];
-    sprintf(id_buffer, "%d", room.id);
+    sprintf(id_buffer, "%d", room->id);
     strcat(str_buffer, id_buffer);
     strcat(str_buffer, ", name: ");
-    strcat(str_buffer, room.name);
+    strcat(str_buffer, room->name);
     strcat(str_buffer, ", connections: [");
     int i;
-    for (i = 0; i < room.connection_count; ++i)
+    for (i = 0; i < room->connection_count; ++i)
     {
-        strcat(str_buffer, room.connections[i]);
+        strcat(str_buffer, room->connections[i]);
         strcat(str_buffer, ", ");
     }
     strcat(str_buffer, "], room_type: ");
-    strcat(str_buffer, room_type_to_str(room.type));
+    strcat(str_buffer, room_type_to_str(room->type));
     strcat(str_buffer, "}");
 }
 
@@ -286,8 +382,6 @@ const char* room_type_to_str(room_type rt)
     }
 }
 
-void room_print_debug(Room room, char* str_buffer)
-int parse_room_dir(const char* dir_path, Room* room_buffer, int max_rooms)
 // (main) Get room array, enter game loop
 int main(void)
 {
@@ -298,7 +392,7 @@ int main(void)
     }
 
     int room_count = 7;
-    Room room_buffer[room_count];
+    Room* room_buffer[room_count];
     int parse_result = parse_room_dir(path_buffer, room_buffer, room_count);
     if (parse_result != 7)
     {
@@ -319,12 +413,13 @@ int main(void)
         return parse_result == 0 ? 100 : parse_result;
     }
 
-        int i;
-        for (i = 0; i < 7; ++i)
-        {
-            char room_debug_str_buffer[256];
-            room_print_debug(room_buffer[i], room_debug_str_buffer);
-            printf("%s\n", room_debug_str_buffer);
-        }
+    int i;
+    for (i = 0; i < 7; ++i)
+    {
+        char room_debug_str_buffer[256];
+        room_print_debug(room_buffer[i], room_debug_str_buffer);
+        printf("%s\n", room_debug_str_buffer);
+    }
+
     return 0;
 }
