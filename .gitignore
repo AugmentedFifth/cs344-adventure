@@ -1,6 +1,9 @@
 # Executable
 comitoz.buildrooms
 
+# Program output
+comitoz.rooms.*/
+
 # Crap
 comitoz.buildrooms.i
 

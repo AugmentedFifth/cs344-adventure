@@ -1,10 +1,11 @@
 #include <stdio.h>     // fopen, fclose, printf, scanf, sprintf
 #include <stdlib.h>    // malloc, free, rand
-#include <string.h>    // memcpy, strcpy, strcat
+#include <string.h>    // memcpy, strcpy, strcat, strerror
 #include <assert.h>    // Good ol' assertions
 #include <sys/types.h> // Types for system functions
 #include <sys/stat.h>  // stat
 #include <unistd.h>    // getpid
+#include <errno.h>     // errno
 
 
 // `typedef`s
@@ -24,6 +25,7 @@ typedef struct Room
 
 // Room names
 #define ROOM_NAME_COUNT 10
+#define MAX_ROOM_NAME_LEN 12
 const char* ROOM_NAMES[ROOM_NAME_COUNT] =
 {
     "Semigroupoid",
@@ -260,10 +262,24 @@ bool write_room_files(const Room* rooms, int room_count)
     int i;
     for (i = 0; i < room_count; ++i)
     {
-        FILE* file_handle = fopen(dir_name, "w");
-        assert(file_handle != NULL);
-
         Room room = rooms[i];
+
+        char path_buffer[41 + MAX_ROOM_NAME_LEN];
+        strcpy(path_buffer, dir_name);
+        strcat(path_buffer, "/");
+        strcat(path_buffer, room.name);
+        FILE* file_handle = fopen(path_buffer, "w");
+        if (file_handle == NULL)
+        {
+            fprintf(
+                stderr,
+                "fopen(%s, \"w\") failed with: \"%s\"\n",
+                dir_name,
+                strerror(errno)
+            );
+
+            return false;
+        }
         
         fprintf(file_handle, "ROOM NAME: %s\n", room.name);
         int j;
@@ -282,6 +298,8 @@ bool write_room_files(const Room* rooms, int room_count)
     }    
 
     free(dir_name);
+
+    return true;
 }
 
 // Convert `room_type` enum into its string representation
@@ -314,7 +332,10 @@ int main(int argc, char* argv[])
     make_connections(room_buffer, room_count);
     
     printf("=== write_room_files ===\n");
-    write_room_files(room_buffer, room_count);
+    if (!write_room_files(room_buffer, room_count))
+    {
+        return 1;
+    }
 
     printf("=== Cleanup ===\n");
     // Cleanup
