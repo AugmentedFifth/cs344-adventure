@@ -102,6 +102,8 @@ bool get_fresh_dir_path(char* path_buffer)
                     strerror(errno)
                 );
 
+                closedir(cwd);
+
                 return false;
             }
 
@@ -115,6 +117,8 @@ bool get_fresh_dir_path(char* path_buffer)
 
         entity = readdir(cwd);
     }
+
+    closedir(cwd);
 
     if (freshest_path_time == 0)
     {
@@ -175,6 +179,8 @@ int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms)
                 strerror(errno)
             );
 
+            closedir(dir);
+
             return -1;
         }
         
@@ -188,6 +194,8 @@ int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms)
         {
             fprintf(stderr, "Parse failure was in %s\n", rel_path_buffer);
 
+            closedir(dir);
+
             return -1;
         }
         room_buffer[parsed_room_count] = parsed_room;
@@ -197,6 +205,8 @@ int parse_room_dir(const char* dir_path, Room** room_buffer, int max_rooms)
 
         entity = readdir(dir);
     }
+
+    closedir(dir);
 
     return parsed_room_count;
 }
@@ -386,7 +396,7 @@ const char* room_type_to_str(room_type rt)
     }
 }
 
-// (main) Get room array, enter game loop
+// Get room array, enter game loop
 int main(void)
 {
     char path_buffer[256];
@@ -418,12 +428,132 @@ int main(void)
     }
 
     int i;
-    for (i = 0; i < 7; ++i)
+    for (i = 0; i < room_count; ++i)
     {
         char room_debug_str_buffer[256];
         room_print_debug(room_buffer[i], room_debug_str_buffer);
         printf("%s\n", room_debug_str_buffer);
     }
+    printf("\n");
+
+    // Prepare game loop by obtaining start room and initializing variables
+    // for `getline` to use, as well as making memory for the path history
+    // to be stored in
+    i = 0;
+    Room* current_room = room_buffer[i];
+    for (i = 1; i < room_count && current_room->type != START_ROOM; ++i)
+    {
+        current_room = room_buffer[i];
+    }
+    if (current_room->type != START_ROOM)
+    {
+        fprintf(
+            stderr,
+            "None of the %d rooms are starting rooms",
+            room_count
+        );
+        return 1;
+    }
+
+    // `getline` stuff
+    char* line = NULL;
+    size_t getline_buffer_size = 0;
+    ssize_t chars_read;
+
+    // Path history storage
+    int path_history_cap = 16;
+    char** path_history = malloc(path_history_cap * sizeof(char*));
+    int path_history_len = 0;
+
+    bool changed_room = false;
+
+    // Game loop
+    do
+    {
+        if (changed_room)
+        {
+            if (path_history_len >= path_history_cap)
+            {
+                // Reallocate more storage for the history if necessary
+                path_history_cap *= 2;
+                path_history = realloc(
+                    path_history,
+                    path_history_cap * sizeof(char*)
+                );
+            }
+            // Update path history
+            char* current_path_point = malloc(20 * sizeof(char));
+            strcpy(current_path_point, current_room->name);
+            path_history[path_history_len] = current_path_point;
+            path_history_len++;
+
+            changed_room = false;
+        }
+
+        if (current_room->type == END_ROOM)
+        {
+            break;
+        }
+
+        printf("CURRENT LOCATION: %s\n", current_room->name);
+        printf("POSSIBLE CONNECTIONS: %s", current_room->connections[0]);
+        for (i = 1; i < current_room->connection_count; ++i)
+        {
+            printf(", %s", current_room->connections[i]);
+        }
+        printf(".\n");
+        printf("WHERE TO? >");
+
+        chars_read = getline(&line, &getline_buffer_size, stdin);
+
+        line[chars_read - 1] = '\0'; // Overwriting captured '\n'
+        for (i = 0; i < current_room->connection_count; ++i)
+        {
+            if (strcmp(line, current_room->connections[i]) == 0)
+            {
+                int j;
+                for (j = 0; j < room_count; ++j)
+                {
+                    if (strcmp(line, room_buffer[j]->name) == 0)
+                    {
+                        current_room = room_buffer[j];
+                        changed_room = true;
+
+                        break;
+                    }
+                }
+
+                break;
+            }
+        }
+
+        if (!changed_room)
+        {
+            printf("\nHUH? I DON'T UNDERSTAND THAT ROOM. TRY AGAIN.\n");
+        }
+
+        printf("\n");
+    } while (chars_read != -1);
+
+    // Looks like they won
+    printf("YOU HAVE FOUND THE END ROOM. CONGRATULATIONS!\n");
+    printf("YOU TOOK %d STEPS. YOUR PATH TO VICTORY WAS:\n", path_history_len);
+    for (i = 0; i < path_history_len; ++i)
+    {
+        printf("%s\n", path_history[i]);
+    }
+
+    // Cleanup
+    for (i = 0; i < room_count; ++i)
+    {
+        _Room(room_buffer[i]);
+        free(room_buffer[i]);
+    }
+    for (i = 0; i < path_history_len; ++i)
+    {
+        free(path_history[i]);
+    }
+    free(path_history);
 
     return 0;
 }
