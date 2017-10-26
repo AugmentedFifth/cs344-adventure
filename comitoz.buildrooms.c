@@ -1,7 +1,6 @@
 #include <stdio.h>     // fopen, fclose, printf, scanf, sprintf
 #include <stdlib.h>    // malloc, free, rand
 #include <string.h>    // memcpy, strcpy, strcat, strerror
-#include <assert.h>    // Good ol' assertions
 #include <sys/types.h> // Types for system functions
 #include <sys/stat.h>  // stat
 #include <unistd.h>    // getpid
@@ -10,7 +9,7 @@
 
 
 // `typedef`s
-typedef enum {false, true} bool;
+typedef enum {false, true} bool; // C99 makes C11 look young in comparison
 
 typedef enum {START_ROOM, MID_ROOM, END_ROOM} room_type;
 
@@ -27,8 +26,8 @@ typedef struct Room
 // Room names
 #define ROOM_NAME_COUNT 10
 #define MAX_ROOM_NAME_LEN 12
-const char* ROOM_NAMES[ROOM_NAME_COUNT] =
-{
+const char* ROOM_NAMES[ROOM_NAME_COUNT] = // Spooky abstract algebra names to
+{                                         // keep up the Halloween theme
     "Semigroupoid",
     "Category",
     "Groupoid",
@@ -42,7 +41,7 @@ const char* ROOM_NAMES[ROOM_NAME_COUNT] =
 };
 
 
-// Forward declarations
+// Forward declarations (tfw no header files)
 void _Room(Room* r);
 
 void initialize_rooms(Room* room_buffer, int room_count);
@@ -73,17 +72,18 @@ const char* room_type_to_str(room_type rt);
 // Use this to free `Room`s
 void _Room(Room* r)
 {
+    // More trivial than the one in *.adventure.c
     free(r->connections);
 }
 
 // Initialize an array of `Room`s
 void initialize_rooms(Room* room_buffer, int room_count)
 {
-    assert(room_count <= ROOM_NAME_COUNT);
-    
     char* shuffled_room_names[ROOM_NAME_COUNT];
     get_random_room_names(shuffled_room_names);
 
+    // Create the rooms in a loop using the random names; we're mutating
+    // the buffer parameter so no need to have a return value
     int i;
     for (i = 0; i < room_count; ++i)
     {
@@ -92,8 +92,8 @@ void initialize_rooms(Room* room_buffer, int room_count)
         r.name = shuffled_room_names[i];
         r.connections = malloc(6 * sizeof(int));
         r.connection_count = 0;
-        if (i == 0)
-        {
+        if (i == 0) // Sometimes I regret giving into the pressure of C/C++
+        {           // "braces-on-their-own-line" thing
             r.type = START_ROOM;
         }
         else if (i == 1)
@@ -114,9 +114,10 @@ void initialize_rooms(Room* room_buffer, int room_count)
 // `ROOM_NAME_COUNT` `char*`s
 void get_random_room_names(char* room_name_buffer[])
 {
+    // Spooky scary memory copying (more Halloween spirit)
     memcpy(room_name_buffer, ROOM_NAMES, ROOM_NAME_COUNT * sizeof(char*));
 
-    // Fisher-Yates
+    // Fisher-Yates, one of my favorite algorithms
     int i;
     for (i = ROOM_NAME_COUNT - 1; i >= 1; --i)
     {
@@ -130,6 +131,7 @@ void get_random_room_names(char* room_name_buffer[])
 // Create all connections of the graph
 void make_connections(Room* rooms, int room_count)
 {
+    // Add valid connections 'til the whole thing's full
     while (!is_graph_full(rooms, room_count))
     {
         add_random_connection(rooms, room_count);
@@ -143,7 +145,6 @@ bool is_graph_full(const Room* rooms, int room_count)
     for (i = 0; i < room_count; ++i)
     {
         int connection_count = rooms[i].connection_count;
-        assert(connection_count <= 6);
 
         if (connection_count < 3)
         {
@@ -168,7 +169,7 @@ void add_random_connection(Room* rooms, int room_count)
     int possible_as = 0;
 
     int i;
-    for (i = 0; i < room_count; ++i) 
+    for (i = 0; i < room_count; ++i)
     {
         if (can_add_connection_from(rooms[i]))
         {
@@ -177,8 +178,9 @@ void add_random_connection(Room* rooms, int room_count)
         }
     }
 
-    assert(possible_as > 0);
-
+    // Ugh this line is terrible. `choices_for_*` is just an array of the
+    // INDICES (of `rooms`, the `Room` buffer) that are possible choices,
+    // so we have to index into that and then use that to index into `rooms`
     Room* a = &rooms[choices_for_a[rand() % possible_as]];
 
     int choices_for_b[room_count];
@@ -187,7 +189,7 @@ void add_random_connection(Room* rooms, int room_count)
     for (i = 0; i < room_count; ++i)
     {
         if (
-            can_add_connection_from(rooms[i]) &&
+            can_add_connection_from(rooms[i]) && // Line 'em up
             !is_same_room(*a, rooms[i])       &&
             !connection_already_exists(*a, rooms[i])
         ) {
@@ -196,10 +198,9 @@ void add_random_connection(Room* rooms, int room_count)
         }
     }
 
-    assert(possible_bs > 0);
-
     Room* b = &rooms[choices_for_b[rand() % possible_bs]];
 
+    // Makes the connection bidirectionally
     connect_rooms(a, b);
 }
 
@@ -212,6 +213,7 @@ bool can_add_connection_from(Room room)
 // Is there already a connection from `room1` to `room2`?
 bool connection_already_exists(Room room1, Room room2)
 {
+    // Simple linear search
     int i;
     for (i = 0; i < room1.connection_count; ++i)
     {
@@ -228,7 +230,9 @@ bool connection_already_exists(Room room1, Room room2)
 void connect_rooms(Room* room1, Room* room2)
 {
     room1->connections[room1->connection_count] = room2->id;
-    room1->connection_count++;
+    room1->connection_count++; // Information hiding is weird but you regret
+                               // everything as soon as you forget to
+                               // increment a variable like this one
 
     room2->connections[room2->connection_count] = room1->id;
     room2->connection_count++;
@@ -237,7 +241,7 @@ void connect_rooms(Room* room1, Room* room2)
 // Are `room1` and `room2` the same room?
 bool is_same_room(Room room1, Room room2)
 {
-    return room1.id == room2.id;
+    return room1.id == room2.id; // The only purpose of the `id` field
 }
 
 // Generate dir name to put files in.
@@ -245,8 +249,7 @@ bool is_same_room(Room room1, Room room2)
 void get_dir_name(char* buffer)
 {
     char pid_str_buffer[24];
-    int format_success = sprintf(pid_str_buffer, "%d", getpid());
-    assert(format_success > 0);
+    sprintf(pid_str_buffer, "%d", getpid());
 
     strcpy(buffer, "comitoz.rooms.");
     strcat(buffer, pid_str_buffer);
@@ -255,10 +258,12 @@ void get_dir_name(char* buffer)
 // Write the room files, returning `false` on failure
 bool write_room_files(const Room* rooms, int room_count)
 {
-    char* dir_name = malloc(40 * sizeof(char));
+    char dir_name[40]; // This was a `malloc` until I noticed it just now.
+                       // `malloc` is NOT safe for children, and we were all
+                       // children once upon a time
     get_dir_name(dir_name);
 
-    mkdir(dir_name, 0777);
+    mkdir(dir_name, 0777); // No secrets
 
     int i;
     for (i = 0; i < room_count; ++i)
@@ -282,7 +287,7 @@ bool write_room_files(const Room* rooms, int room_count)
 
             return false;
         }
-        
+
         fprintf(file_handle, "ROOM NAME: %s\n", room.name);
         int j;
         for (j = 0; j < room.connection_count; ++j)
@@ -295,11 +300,9 @@ bool write_room_files(const Room* rooms, int room_count)
             );
         }
         fprintf(file_handle, "ROOM TYPE: %s\n", room_type_to_str(room.type));
-        
-        fclose(file_handle);
-    }    
 
-    free(dir_name);
+        fclose(file_handle);
+    }
 
     return true;
 }
@@ -320,37 +323,36 @@ const char* room_type_to_str(room_type rt)
     }
 }
 
-
-int main(void)
+int main(void) // It turns out that in C, an empty parameter list means
+               // "this function takes any number of any kind of thing(!)",
+               // which is... awful. But at least you get a warning if you use
+               // nearly every warning flag like I do
 {
-    // Seed our PRNG
+    // Seed our PRNG.
+    // Don't forget to do this like I did, because you WILL get the same
+    // results every time and wonder what pointer arithmetic you did wrong
+    // when shuffling your data
     srand(time(NULL));
 
-    printf("=== Entry point ===\n");
     int room_count = 7;
     Room* room_buffer = malloc(room_count * sizeof(Room));
 
-    printf("=== initialize_rooms ===\n");
     initialize_rooms(room_buffer, room_count);
-    
-    printf("=== make_connections ===\n");
+
     make_connections(room_buffer, room_count);
-    
-    printf("=== write_room_files ===\n");
+
     if (!write_room_files(room_buffer, room_count))
     {
-        return 1;
+        return 1; // D'oh
     }
 
-    printf("=== Cleanup ===\n");
     // Cleanup
     int i;
     for (i = 0; i < room_count; ++i)
     {
-        _Room(&room_buffer[i]);
+        _Room(&room_buffer[i]); // Sometimes you feel thankful for C++
     }
     free(room_buffer);
 
-    printf("=== Success? ===\n");
     return 0;
 }

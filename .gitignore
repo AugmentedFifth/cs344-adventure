@@ -4,9 +4,10 @@ comitoz.adventure
 
 # Program output
 comitoz.rooms.*/
+currentTime.txt
 
 # Crap
-comitoz.buildrooms.i
+*.i
 
 # Prerequisites
 *.d
